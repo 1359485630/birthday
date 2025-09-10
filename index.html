@@ -1,45 +1,155 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>给你的小惊喜 🎂</title>
-
-  <!-- model-viewer -->
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-
-  <style>
-    html,body { height:100%; margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-    main { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:12px; background: radial-gradient(circle at 10% 10%, #fff7f9, #ffeef6 30%, #fff);}
-    .viewer { width:100%; max-width:900px; height:60vh; border-radius:12px; overflow:hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-    .hint { font-size:1rem; color:#333; text-align:center; }
-    .btn { padding:10px 18px; border-radius:8px; background:#ff4081; color:white; border:0; font-weight:600; }
-    footer { font-size:0.9rem; color:#666; margin-top:6px; text-align:center; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>熊瑶的生日小游戏 🎉</title>
+<style>
+body, html { margin:0; padding:0; overflow:hidden; font-family:sans-serif; background: linear-gradient(to top, #ffeef6, #fff7f9);}
+#gameArea { position: relative; width: 100vw; height: 100vh; touch-action: none; overflow:hidden;}
+#player { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); width: 50px; height: 50px; background: url('https://i.imgur.com/6bZ3J8p.png') no-repeat center/contain; transition: left 0.1s linear; }
+.item { position: absolute; width: 40px; height: 40px; background-size: contain; cursor:pointer; transition: transform 0.2s; }
+.item:hover { transform: scale(1.2);}
+#message { position:absolute; width:100%; top:40%; text-align:center; font-size:2rem; color:#ff4081; display:none; animation: float 2s ease forwards; }
+@keyframes float { 0%{opacity:0; transform:translateY(50px);} 100%{opacity:1; transform:translateY(0);} }
+#cake { position:absolute; width:80px; height:80px; bottom:15%; left:50%; transform:translateX(-50%); background:url('https://i.imgur.com/7wQGJ6c.png') no-repeat center/contain; display:none; cursor:pointer; }
+#progress { position:absolute; top:5%; left:5%; width:90%; height:20px; background:#eee; border-radius:10px; }
+#progressBar { width:0%; height:100%; background: linear-gradient(90deg,#ff4081,#ff80ab); border-radius:10px; transition: width 0.2s; }
+.confetti { position:absolute; width:10px; height:10px; background:gold; opacity:0.8; pointer-events:none; }
+audio { display:none; }
+</style>
 </head>
 <body>
-  <main>
-    <div class="viewer">
-      <!-- 替换 src 为你的 model.glb，ios-src 如果你准备了 .usdz（可选）就写上 -->
-      <model-viewer id="mv"
-        src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
-        alt="生日惊喜"
-        ios-src=""
-        poster=""
-        ar
-        ar-modes="webxr scene-viewer quick-look"
-        ar-scale="auto"
-        camera-controls
-        autoplay
-        style="width:100%; height:100%; background-color:transparent;">
-      </model-viewer>
-    </div>
+<div id="gameArea">
+  <div id="player"></div>
+  <div id="message">🎉 Happy Birthday 熊瑶! 🎉</div>
+  <div id="cake"></div>
+  <div id="progress"><div id="progressBar"></div></div>
+</div>
 
-    <div class="hint">把手机对准你周围的地面或桌面，点击屏幕中的 <strong>AR</strong> 按钮，把虚拟蛋糕放到现实中 🎂</div>
+<!-- 音效 -->
+<audio id="popSound" src="https://www.myinstants.com/media/sounds/pop.mp3"></audio>
+<audio id="cakeSound" src="https://www.myinstants.com/media/sounds/birthday-candle.mp3"></audio>
+<audio id="bgMusic" src="https://www.myinstants.com/media/sounds/happy-birthday.mp3" loop autoplay></audio>
 
-    <button class="btn" onclick="document.getElementById('mv').enterAR()">直接打开 AR（若支持）</button>
+<script>
+const gameArea = document.getElementById('gameArea');
+const player = document.getElementById('player');
+const message = document.getElementById('message');
+const cake = document.getElementById('cake');
+const progressBar = document.getElementById('progressBar');
+const popSound = document.getElementById('popSound');
+const cakeSound = document.getElementById('cakeSound');
+const bgMusic = document.getElementById('bgMusic');
 
-    <footer>提示：如果 AR 按钮没出现，可能是该设备/浏览器不支持内嵌 WebXR，但 model-viewer 会尝试用系统的 AR 查看器作为备选。</footer>
-  </main>
+let collected = 0;
+const totalItems = 8;
+let items = [];
+let confettis = [];
+
+// 随机生成item
+function createItem() {
+  const item = document.createElement('div');
+  item.classList.add('item');
+  if(collected < 5) item.style.backgroundImage = "url('https://i.imgur.com/9w1hXkD.png')"; // 气球
+  else item.style.backgroundImage = "url('https://i.imgur.com/hX4oE0N.png')"; // 礼物
+  item.style.left = Math.random()*90 + 'vw';
+  item.style.top = '-50px';
+  gameArea.appendChild(item);
+  items.push(item);
+}
+
+// 下落动画
+function dropItems() {
+  items.forEach(item=>{
+    const top = parseFloat(item.style.top);
+    if(top < window.innerHeight-60) {
+      item.style.top = top + 2 + 'px';
+    } else {
+      gameArea.removeChild(item);
+      items = items.filter(i=>i!==item);
+      createItem();
+    }
+  });
+  requestAnimationFrame(dropItems);
+}
+
+// 检测碰撞
+function checkCollision() {
+  items.forEach(item=>{
+    const playerRect = player.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    if(!(playerRect.right<itemRect.left || playerRect.left>itemRect.right || playerRect.bottom<itemRect.top || playerRect.top>itemRect.bottom)) {
+      collected++;
+      popSound.currentTime = 0; popSound.play();
+      progressBar.style.width = (collected/totalItems*100)+'%';
+      gameArea.removeChild(item);
+      items = items.filter(i=>i!==item);
+      if(collected<totalItems) createItem();
+      else showCake();
+    }
+  });
+  requestAnimationFrame(checkCollision);
+}
+
+// 显示蛋糕和祝福
+function showCake(){
+  cake.style.display = 'block';
+}
+
+// 点击蛋糕显示祝福 + 彩带
+cake.addEventListener('click', ()=>{
+  cakeSound.currentTime = 0; cakeSound.play();
+  message.style.display = 'block';
+  launchConfetti();
+});
+
+// 控制玩家左右
+gameArea.addEventListener('touchstart', e=>{
+  const x = e.touches[0].clientX;
+  const left = parseFloat(player.style.left);
+  if(x < window.innerWidth/2) {
+    player.style.left = Math.max(0, left-30) + 'px';
+  } else {
+    player.style.left = Math.min(window.innerWidth-50, left+30) + 'px';
+  }
+});
+
+// 初始化
+for(let i=0;i<totalItems;i++) createItem();
+dropItems();
+checkCollision();
+
+// 彩带/烟花效果
+function launchConfetti(){
+  for(let i=0;i<50;i++){
+    const conf = document.createElement('div');
+    conf.classList.add('confetti');
+    conf.style.left = Math.random()*100+'vw';
+    conf.style.top = '-10px';
+    conf.style.background = `hsl(${Math.random()*360}, 100%, 50%)`;
+    gameArea.appendChild(conf);
+    confettis.push(conf);
+    animateConfetti(conf);
+  }
+}
+
+function animateConfetti(conf){
+  let y = -10;
+  const speed = 2+Math.random()*3;
+  const sway = Math.random()*4;
+  function fall(){
+    y += speed;
+    conf.style.top = y+'px';
+    conf.style.left = parseFloat(conf.style.left) + Math.sin(y/10)*sway + 'px';
+    if(y < window.innerHeight){
+      requestAnimationFrame(fall);
+    } else {
+      gameArea.removeChild(conf);
+    }
+  }
+  fall();
+}
+</script>
 </body>
 </html>
